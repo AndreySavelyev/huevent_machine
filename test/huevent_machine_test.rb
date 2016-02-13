@@ -1,11 +1,13 @@
 require "minitest/autorun"
 require "huevent_machine"
+require 'pry'
 require "socket"
 
 
 class TestHueventMachine < Minitest::Test
   module TestServer
     def post_init
+      puts "POST INIT!" * 10
       Thread.current[:post_init_received] = true
     end
 
@@ -35,7 +37,7 @@ class TestHueventMachine < Minitest::Test
     assert_equal socket.connect(addrinfo), 0
 
     socket.close
-    HueventMachine.stop
+    HueventMachine.clear
   end
 
   def test_run
@@ -46,7 +48,7 @@ class TestHueventMachine < Minitest::Test
       end
     end
 
-    sleep 2
+    sleep 1
 
     socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)
