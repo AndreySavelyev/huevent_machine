@@ -13,6 +13,7 @@ class TestHueventMachine < Minitest::Test
     end
 
     def unbind
+      puts "UNBIND" * 30
       HueventMachine.stop
     end
   end
@@ -33,7 +34,7 @@ class TestHueventMachine < Minitest::Test
     assert_equal socket.connect(addrinfo), 0
 
     socket.close
-
+    HueventMachine.stop
   end
 
   def test_run
@@ -47,11 +48,10 @@ class TestHueventMachine < Minitest::Test
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)
     socket.connect(addrinfo)
     socket.close
-
     thread.join
 
     assert_equal thread[:post_init_received], true
-
+    HueventMachine.stop
   end
 
 end

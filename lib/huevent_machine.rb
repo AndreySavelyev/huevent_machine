@@ -8,10 +8,14 @@ class HueventMachine
     end
 
     def listen
-      socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
+      @socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
       addrinfo = Addrinfo.tcp(@addr, @port)
-      socket.bind(addrinfo)
-      socket.listen(5)
+      @socket.bind(addrinfo)
+      @socket.listen(5)
+    end
+
+    def stop
+      @socket.close
     end
   end
 
@@ -19,15 +23,18 @@ class HueventMachine
     yield
 
     server = @@servers.first
-
+    @clients = []
     loop do
-      puts 'wait accept'
+      puts 'wait accept' * 30
       read_sockets = @clients + [server.socket]
       ready = IO.select(read_sockets, [], [])
 
+      puts "*"*100
+      puts ready
+
       ready[0].each do |io|
-        if io == socket # server socket
-          puts "New client"
+        if io == server.socket # server socket
+          puts "New client" * 30
           client, client_addrinfo = @socket.accept
           clients << client
         elsif io == read_io
@@ -51,14 +58,19 @@ class HueventMachine
         end
       end
     end
+
+  rescue Errno::ECONNRESET => e
+    binding.pry
   end
 
-  def stop
+  def self.stop
+    puts "STOP SIGNAL"
+    @@servers.each(&:stop)
+    @@servers = []
   end
 
   def self.start_server address, port, handler
     @@servers ||= []
-
 
     server_class = Class.new
     server_class.include BaseServer
@@ -68,7 +80,5 @@ class HueventMachine
     handle.listen
 
     @@servers << handle
-
-    self
   end
 end
