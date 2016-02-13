@@ -1,14 +1,18 @@
 require 'socket'
 
 class HueventMachine
-  module BaseServer
+  class BaseServer
     attr_reader :addr
     attr_reader :port
     attr_reader :socket
+    attr_reader :handler
 
-    def initialize(addr, port)
+    def initialize(addr, port, handler_module)
       @addr = addr
       @port = port
+      @handler = Class.new
+      @handler.include BaseHandler
+      @handler.include handler_module
     end
 
     def listen
@@ -21,9 +25,24 @@ class HueventMachine
     def stop
       @socket.close
     end
+  end
 
-    def unbind
+  module BaseHandler
+    attr_reader :socket
+
+    def initialize(socket, client_addrinfo)
+      @socket = socket
+      @client_addrinfo = client_addrinfo
     end
+
+    def close
+      @socket.close
+    end
+  end
+
+  def self.create_handler(server, client, client_addrinfo)
+    @@clients ||= []
+    @@clients << server.handler.new(client, client_addrinfo)
   end
 
   def self.run
@@ -32,11 +51,11 @@ class HueventMachine
     yield
 
     server = @@servers.first
-    @@clients ||= []
+    @@client_sockets ||= []
 
     loop do
       puts 'wait accept' #* 30
-      read_sockets = @@clients + @@servers.map(&:socket)
+      read_sockets = @@client_sockets + [server.socket]
       puts 'select'
       ready = IO.select(read_sockets, [], [], 1)
 
@@ -51,18 +70,19 @@ class HueventMachine
           if @@servers.find { |server| server.socket == io } # server socket
             puts "New client" #* 30
             client, client_addrinfo = io.accept
-            @@clients << client
-            server.post_init
+            @@client_sockets << client
+            handler = create_handler(server, client, client_addrinfo)
+            handler.post_init
           else # client socket
-            puts
+            #puts
             str = io.gets
 
             if str.nil?
               puts "Closed connection: #{io.inspect}"
               #server = @@servers.find { |s| s.socket == io }
-              server.unbind
-              io.close
-              @@clients.delete(io)
+              client = @@clients.find { |c| c.socket == io }
+              client.close
+              @@clients.delete(client.socket)
             elsif str == "exit\n"
               puts "Exi command from: #{io.inspect}"
               io.close
@@ -89,13 +109,9 @@ class HueventMachine
   def self.start_server address, port, handler
     @@servers ||= []
 
-    server_class = Class.new
-    server_class.include BaseServer
-    server_class.include handler
-    handle = server_class.new(address, port)
+    server = BaseServer.new(address, port, handler)
+    server.listen
 
-    handle.listen
-
-    @@servers << handle
+    @@servers << server
   end
 end
