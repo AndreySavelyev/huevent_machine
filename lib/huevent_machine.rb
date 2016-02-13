@@ -44,13 +44,9 @@ class HueventMachine
       # implement
     end
 
-  end
-
-  def self.create_handler(handler, client, client_addrinfo)
-    @@clients ||= []
-    h = handler.new(client, client_addrinfo)
-    @@clients << h
-    h
+    def post_init
+      # implement
+    end
   end
 
   def self.run
@@ -78,9 +74,11 @@ class HueventMachine
         if server.socket == io # server socket
           puts "New client" #* 30
           client, client_addrinfo = io.accept
-          @@client_sockets << client
-          handler = create_handler(server.handler, client, client_addrinfo)
+          handler = server.handler.new(client, client_addrinfo)
+          @@clients ||= []
+          @@clients << handler
           handler.post_init
+          @@client_sockets << handler.socket
         else # client socket
           #puts
           str = io.gets
@@ -88,26 +86,25 @@ class HueventMachine
           if str.nil?
             puts "Closed connection: #{io.inspect}"
             #server = @@servers.find { |s| s.socket == io }
-            client = @@clients.find { |c| c.socket == io }
-            client.close
-            @@client_sockets.delete(client.socket)
-          elsif str == "exit\n"
-            puts "Exi command from: #{io.inspect}"
-            io.close
-            @@client_sockets.delete(io)
+            handler = @@clients.find { |c| c.socket == io }
+            handler.close
+            @@client_sockets.delete(handler.socket)
           else
-            puts "Client: #{str}"
+            # TODO: receive_data
           end
         end
       end
     end
+
     clear
-  rescue Exception => e
-    binding.pry
+  #rescue Exception => e
+  #  binding.pry
   end
 
   def self.clear
+    puts 'CLEAR' * 10
     @@client_sockets.each(&:close)
+    @@client_sockets = []
     @@servers.each(&:stop)
     @@servers = []
   end
@@ -118,6 +115,7 @@ class HueventMachine
   end
 
   def self.start_server address, port, handler
+    @@client_sockets ||= []
     @@servers ||= []
 
     server = BaseServer.new(address, port, handler)
