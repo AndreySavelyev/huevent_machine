@@ -7,6 +7,10 @@ class TestHueventMachine < Minitest::Test
   module EchoServer
     def post_init
     end
+
+    def unbind
+      stop
+    end
   end
 
   def setup
@@ -21,12 +25,9 @@ class TestHueventMachine < Minitest::Test
   end
 
   def test_start_server
-    child_id = Process.fork do
-      HueventMachine.start_server(@addr, @port, @handler)
-
-      server = new(address, port, handler)
-    server.run
-
+    child_pid = Process.fork do
+      server = HueventMachine.create_server(@addr, @port, @handler)
+      server.run
     end
 
     sleep 2
@@ -34,9 +35,9 @@ class TestHueventMachine < Minitest::Test
     socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)
     assert_equal socket.connect(addrinfo), 0
-
     socket.close
-    Process.wait
+
+    Process.kill("TERM", child_pid)
 
   end
 
