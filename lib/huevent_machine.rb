@@ -1,12 +1,28 @@
 require 'socket'
 
 class HueventMachine
+  module BaseServer
+    def initialize(addr, port)
+      @addr = addr
+      @port = port
+    end
+
+    def listen
+      socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
+      addrinfo = Addrinfo.tcp(@addr, @port)
+      socket.bind(addrinfo)
+      socket.listen(5)
+    end
+  end
+
   def self.run
     yield
 
+    server = @@servers.first
+
     loop do
       puts 'wait accept'
-      read_sockets = @clients + [@socket]
+      read_sockets = @clients + [server.socket]
       ready = IO.select(read_sockets, [], [])
 
       ready[0].each do |io|
@@ -43,15 +59,16 @@ class HueventMachine
   def self.start_server address, port, handler
     @@servers ||= []
 
-    socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
-    addrinfo = Addrinfo.tcp(address, port)
-    socket.bind(addrinfo)
-    socket.listen(5)
 
     server_class = Class.new
+    server_class.include BaseServer
     server_class.include handler
-    handle = server_class.new
+    handle = server_class.new(address, port)
+
+    handle.listen
 
     @@servers << handle
+
+    self
   end
 end

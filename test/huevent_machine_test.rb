@@ -4,29 +4,53 @@ require "socket"
 
 
 class TestHueventMachine < Minitest::Test
-  module EchoServer
+  module TestServer
     def post_init
+      Thread.current[:post_init_received] = true
+    end
+
+    def receive_data(data)
     end
 
     def unbind
-      stop
+      HueventMachine.stop
     end
   end
 
   def setup
     @addr = '127.0.0.1'
     @port = rand(2224..2999)
-    @handler = EchoServer
+    @handler = TestServer
   end
 
   def test_start_server
-    server = HueventMachine.start_server(@addr, @port, @handler)
+    HueventMachine.start_server(@addr, @port, Module.new)
+
+    assert_equal HueventMachine.class_variable_get(:@@servers).size, 1
 
     socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)
     assert_equal socket.connect(addrinfo), 0
-    assert_equal server.class_variable_get('@@servers'), 1
+
     socket.close
+
+  end
+
+  def test_run
+    thread = Thread.new do
+      HueventMachine.run do
+        HueventMachine.start_server(@addr, @port, @handler)
+      end
+    end
+
+    socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
+    addrinfo = Socket.pack_sockaddr_in(@port, @addr)
+    socket.connect(addrinfo)
+    socket.close
+
+    thread.join
+
+    assert_equal thread[:post_init_received], true
 
   end
 
