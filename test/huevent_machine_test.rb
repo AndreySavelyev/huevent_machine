@@ -10,8 +10,8 @@ class TestHueventMachine < Minitest::Test
   end
 
   def setup
-    @addr = 'localhost'
-    @port = 2222
+    @addr = '127.0.0.1'
+    @port = rand(2224..2999)
     @handler = EchoServer
     @machine = HueventMachine.new(@addr, @port, @handler)
   end
@@ -22,19 +22,22 @@ class TestHueventMachine < Minitest::Test
 
   def test_start_server
     child_id = Process.fork do
-      puts 'qweqweeeeeeeeeeeeeeee'
-      puts @address
-      puts @port
-      puts @address
-      @machine.start_server(@address, @port, @handler)
-      puts 'qweqweeeeeeeeeeeeeeee2'
+      HueventMachine.start_server(@addr, @port, @handler)
+
+      server = new(address, port, handler)
+    server.run
+
     end
+
+    sleep 2
 
     socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)
     assert_equal socket.connect(addrinfo), 0
 
+    socket.close
     Process.wait
+
   end
 
 end

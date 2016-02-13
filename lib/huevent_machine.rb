@@ -7,23 +7,22 @@ class HueventMachine
   end
 
   def run
-    puts 'AAAAAAAAAAAAAAAAAAAAAAAAAAAa4'
     @server = Class.new
     @server.include @handler
-    puts 'AAAAAAAAAAAAAAAAAAAAAAAAAAAa3'
-
+    puts "RUN SERVER"
     @socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     @addrinfo = Addrinfo.tcp(@addr, @port)
     @socket.bind(@addrinfo)
     @socket.listen(5)
 
-    puts 'AAAAAAAAAAAAAAAAAAAAAAAAAAAa'
+    loop do
+      puts 'wait accept'
+      client_socket, client_addrinfo = @socket.accept
+    end
   end
 
   def self.start_server address, port, handler
-    puts 'AAAAAAAAAAAAAAAAAAAAAAAAAAAa1'
     server = new(address, port, handler)
     server.run
-    puts 'AAAAAAAAAAAAAAAAAAAAAAAAAAAa2'
   end
 end
