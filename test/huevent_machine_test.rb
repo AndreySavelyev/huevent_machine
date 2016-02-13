@@ -25,6 +25,7 @@ class TestHueventMachine < Minitest::Test
   end
 
   def test_start_server
+    puts "test_start_server"
     HueventMachine.start_server(@addr, @port, Module.new)
 
     assert_equal HueventMachine.class_variable_get(:@@servers).size, 1
@@ -38,11 +39,14 @@ class TestHueventMachine < Minitest::Test
   end
 
   def test_run
+    puts "test_run"
     thread = Thread.new do
       HueventMachine.run do
         HueventMachine.start_server(@addr, @port, @handler)
       end
     end
+
+    sleep 2
 
     socket = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM)
     addrinfo = Socket.pack_sockaddr_in(@port, @addr)

@@ -2,6 +2,10 @@ require 'socket'
 
 class HueventMachine
   module BaseServer
+    attr_reader :addr
+    attr_reader :port
+    attr_reader :socket
+
     def initialize(addr, port)
       @addr = addr
       @port = port
@@ -17,56 +21,69 @@ class HueventMachine
     def stop
       @socket.close
     end
+
+    def unbind
+    end
   end
 
   def self.run
+    @@run = true
+
     yield
 
     server = @@servers.first
-    @clients = []
+    @@clients ||= []
+
     loop do
-      puts 'wait accept' * 30
-      read_sockets = @clients + [server.socket]
-      ready = IO.select(read_sockets, [], [])
+      puts 'wait accept' #* 30
+      read_sockets = @@clients + @@servers.map(&:socket)
+      puts 'select'
+      ready = IO.select(read_sockets, [], [], 1)
 
-      puts "*"*100
-      puts ready
+      puts "ready" #* 100
+      puts ready.inspect
+      puts "run: #{@@run}"
 
-      ready[0].each do |io|
-        if io == server.socket # server socket
-          puts "New client" * 30
-          client, client_addrinfo = @socket.accept
-          clients << client
-        elsif io == read_io
-          sig = io.gets
-          puts "Signal: #{sig}"
-        else # client socket
-          #puts "New client data"
-          str = io.gets
+      if ready.nil?
+        break unless @@run
+      else
+        ready[0].each do |io|
+          if @@servers.find { |server| server.socket == io } # server socket
+            puts "New client" #* 30
+            client, client_addrinfo = io.accept
+            @@clients << client
+            server.post_init
+          else # client socket
+            puts
+            str = io.gets
 
-          if str.nil?
-            puts "Closed connection: #{io.inspect}"
-            io.close
-            clients.delete(io)
-          elsif str == "exit\n"
-            puts "Exi command from: #{io.inspect}"
-            io.close
-            clients.delete(io)
-          else
-            puts "Client: #{str}"
+            if str.nil?
+              puts "Closed connection: #{io.inspect}"
+              #server = @@servers.find { |s| s.socket == io }
+              server.unbind
+              io.close
+              @@clients.delete(io)
+            elsif str == "exit\n"
+              puts "Exi command from: #{io.inspect}"
+              io.close
+              @@clients.delete(io)
+            else
+              puts "Client: #{str}"
+            end
           end
         end
       end
     end
 
-  rescue Errno::ECONNRESET => e
-    binding.pry
+
   end
 
   def self.stop
     puts "STOP SIGNAL"
     @@servers.each(&:stop)
     @@servers = []
+
+    @@run = false
   end
 
   def self.start_server address, port, handler
