@@ -21,12 +21,13 @@ module HueventMachine
     end
 
     def test_run
-      readable = StringIO.new
-      @reactor.add_readable(readable) {}
       @reactor.on_start { Synchronizer.pass }
       thread = Thread.new { @reactor.run }
       Synchronizer.wait
       assert_equal true, @reactor.running?
+
+      @reactor.stop
+      assert_equal false, @reactor.running?
     end
   end
 end

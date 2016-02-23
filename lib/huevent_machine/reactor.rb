@@ -29,10 +29,10 @@ module HueventMachine
 
       @running = true
       @on_start.call
+    end
 
-      loop do
-
-      end
+    def stop
+      @running = false
     end
 
     def on_start(&blk)
