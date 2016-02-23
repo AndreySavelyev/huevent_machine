@@ -29,6 +29,12 @@ module HueventMachine
 
       @running = true
       @on_start.call
+
+      loop do
+        break unless running?
+        ra = readables.map(&:io)
+        _ready = IO.select(ra)
+      end
     end
 
     def stop
